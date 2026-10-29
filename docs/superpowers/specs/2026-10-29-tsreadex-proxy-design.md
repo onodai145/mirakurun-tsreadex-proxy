@@ -80,7 +80,7 @@ M3U は全体を読み込んでから書き換えるため、上流の読み込�
 ## 5. ストリーム処理
 
 1. `{id}` を検証し、`serviceId = id % 100000` を計算する。`MAX_STREAMS` 超過なら 503。
-2. 上流 `GET {MIRAKURUN_URL}/api/services/{id}/stream[?query]` を、リクエストの context 付きで開く。クライアントのリクエストヘッダは転送せず(`User-Agent` だけは、Go の既定値 `Go-http-client/1.1` ではなく、このプロキシと分かる固定値 `mirakurun-tsreadex-proxy` を付ける。`/playlist.m3u`・`/xmltv`・`/logo/{id}` の上流リクエストも同様)、リダイレクトは追従しない。接続不可なら 502。上流が 4xx/5xx ならそのステータスのみを返す(上流のレスポンス本文は返さない)。それ以外の非2xx(リダイレクトなど)は 502 とする。
+2. 上流 `GET {MIRAKURUN_URL}/api/services/{id}/stream[?query]` を、リクエストの context 付きで開く。クライアントのリクエストヘッダは転送せず(`User-Agent` だけは、Go の既定値 `Go-http-client/1.1` ではなく、このプロキシと分かるバージョン付きの固定値 `mirakurun-tsreadex-proxy/<version>` を付ける。`<version>` はビルド時に `-ldflags -X` で埋め込み、リリースではタグから `v` を除いたもの、指定がなければ `dev` とする。`/playlist.m3u`・`/xmltv`・`/logo/{id}` の上流リクエストも同様)、リダイレクトは追従しない。接続不可なら 502。上流が 4xx/5xx ならそのステータスのみを返す(上流のレスポンス本文は返さない)。それ以外の非2xx(リダイレクトなど)は 502 とする。
 3. `tsreadex -n <serviceId> <TSREADEX_ARGS> -` を `exec` する(シェルを介さない)。環境変数は最小限(`PATH` 程度)だけ渡す。stdin は上流の body、stdout はパイプ。
 4. stdout の最初のバイトを受け取るまでレスポンスヘッダは送らない。受け取ったら `200` と `Content-Type: video/MP2T` を送り、以降は読み取るたびに flush する。最初のバイトが `FIRST_BYTE_TIMEOUT`(既定15秒)以内に来なければ、プロセスを kill して 504 を返す。サービスIDが存在しない場合などの対策である。
 5. 終了処理は次のとおり。

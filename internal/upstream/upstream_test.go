@@ -112,3 +112,12 @@ func TestNewRequestSendsUserAgent(t *testing.T) {
 		t.Errorf("User-Agent = %q, want %q", got, UserAgent)
 	}
 }
+
+func TestUserAgentCarriesTheBuildVersion(t *testing.T) {
+	if version == "" {
+		t.Fatal("version must default to a non-empty value for builds without -ldflags")
+	}
+	if want := "mirakurun-tsreadex-proxy/" + version; UserAgent != want {
+		t.Errorf("UserAgent = %q, want %q", UserAgent, want)
+	}
+}

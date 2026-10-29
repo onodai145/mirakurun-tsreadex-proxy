@@ -84,6 +84,7 @@ docker build -t mirakurun-tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF の
 - `vuln.yml`: `govulncheck` を PR と毎週月曜に実行します。標準ライブラリの脆弱性は Go を更新するまで解消しないため、マージの必須チェックには入れていません。
 - `release.yml`: `v*` タグの push でテストを実行し、通れば GHCR にイメージを公開します(`git tag v1.2.3 && git push origin v1.2.3`)。`-rc.1` などのプレリリースのタグには `latest` も `1.2` も付きません。
   イメージの公開に成功すると、GitHub のリリースページも自動生成されます(`-rc.1` などはプレリリース扱い)。
+  タグから `v` を除いたバージョンは、上流(Mirakurun / mirakc)へ送る `User-Agent`(`mirakurun-tsreadex-proxy/1.2.3`)に埋め込まれます。自分でビルドするときは `docker build --build-arg VERSION=1.2.3 .` で指定でき、省略すると `dev` です。
 - 初回の公開後、GitHub のパッケージの設定でイメージの可視性を Public にしてください(Actions から作られたパッケージは非公開で始まります)。
 - 実機での確認(次節)は自動化できないため、リリースのタグを打つ前に実施してください。
 

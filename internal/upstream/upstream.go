@@ -22,9 +22,13 @@ func NewClient() *http.Client {
 	}
 }
 
-// UserAgent identifies this proxy to Mirakurun/mirakc instead of Go's default
-// "Go-http-client/1.1".
-const UserAgent = "mirakurun-tsreadex-proxy"
+// version is the release version, set at build time with
+// -ldflags "-X github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream.version=1.2.3".
+var version = "dev"
+
+// UserAgent identifies this proxy and its version to Mirakurun/mirakc instead
+// of Go's default "Go-http-client/1.1".
+var UserAgent = "mirakurun-tsreadex-proxy/" + version
 
 // NewRequest returns a GET request for an upstream URL built by URL. It carries
 // UserAgent and no header from the client.
