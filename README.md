@@ -21,7 +21,7 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
    - チューナー: 種類は **M3U Tuner**、URL は `http://tsreadex-proxy:8080/playlist.m3u`
    - 番組表: 種類は **XMLTV**、URL は `http://tsreadex-proxy:8080/xmltv`
 
-イメージは GHCR で公開しています(`linux/amd64` と `linux/arm64`)。`docker-compose.example.yml` の `build: .` の代わりに `image: ghcr.io/onodai145/tsreadex-proxy:<バージョン>` を指定すると、ビルドせずに使えます。タグは `1.2.3`、`1.2`、`latest` です(先頭の `v` は付きません)。
+イメージは GHCR で公開しています(`linux/amd64` と `linux/arm64`)。`docker-compose.example.yml` は `ghcr.io/onodai145/tsreadex-proxy` のリリース済みイメージを使います。タグは `1.2.3`、`1.2`、`latest` です(先頭の `v` は付きません)。再現性のため、`latest` ではなくバージョンを指定してください。ソースからビルドするときは、`image:` の代わりに `build: .` を指定します。
 
 ## 設定
 

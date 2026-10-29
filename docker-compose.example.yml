@@ -2,8 +2,10 @@
 # このプロキシを参加させる例。プロキシの ports は公開しない(LAN 内専用)。
 services:
   tsreadex-proxy:
-    build: .
-    image: tsreadex-proxy:latest
+    # リリース済みのイメージ(linux/amd64 と linux/arm64)。タグは 0.1.0、0.1、latest の形式。
+    # 更新は、バージョンを確認してタグを書き換える。ソースからビルドするときは、
+    # この行を `build: .` に置き換える。
+    image: ghcr.io/onodai145/tsreadex-proxy:0.1.0
     restart: unless-stopped
     environment:
       # Mirakurun/mirakc の URL(同じネットワーク上のサービス名)。
