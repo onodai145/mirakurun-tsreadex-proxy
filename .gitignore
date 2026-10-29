@@ -1,0 +1,4 @@
+/tsreadex-proxy
+/bin/
+*.test
+*.out
