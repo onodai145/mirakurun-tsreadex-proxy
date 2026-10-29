@@ -29,16 +29,16 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
 
 | 環境変数 | 既定値 | 説明 |
 |---|---|---|
-| `MIRAKURUN_URL` | (必須) | 例: `http://mirakurun:40772`。mirakc も Mirakurun 互換 API なので同じ変数で指定します |
+| `MIRAKURUN_URL` | (必須) | 例: `http://mirakurun:40772`。mirakc も Mirakurun 互換 API なので同じ変数で指定します。`http://` のみ使えます(Docker イメージには CA 証明書が入っていないため、`https://` の上流は証明書の検証に失敗します) |
 | `LISTEN_PORT` | `8080` | 待ち受けポート。待ち受けアドレスは設定できず、許可範囲のアドレスから自動で決まります |
 | `PUBLIC_BASE_URL` | (空) | M3U に書き込むこのプロキシの URL。空ならリクエストの Host から導出します |
-| `TSREADEX_PATH` | `tsreadex` | |
+| `TSREADEX_PATH` | `tsreadex` | tsreadex の実行ファイル名またはパス。起動時に実行できるかを確認し、できなければ終了します(Docker イメージでは `/usr/local/bin/tsreadex`) |
 | `TSREADEX_ARGS` | `-x 18/38/39 -b 1 -c 1 -u 2 -d 13` | 空白区切り。`-n`、`-z`、`-s`、`-r` と位置引数は指定できません(`-n` はプロキシが付与します) |
 | `MAX_STREAMS` | `8` | 同時ストリーム数の上限(超えると 503) |
 | `FIRST_BYTE_TIMEOUT` | `15s` | tsreadex の出力開始待ち(超えると 504) |
 | `ALLOW_IPV4_CIDR_RANGES` | `10.0.0.0/8,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16` | 許可する送信元 IPv4(Mirakurun の既定と同じ) |
 | `ALLOW_IPV6_CIDR_RANGES` | `fc00::/7` | 許可する送信元 IPv6(Mirakurun の既定と同じ) |
-| `ALLOW_ORIGINS` | (空) | `Origin` / `Referer` を追加で許可するオリジン(カンマ区切り) |
+| `ALLOW_ORIGINS` | (空) | `Origin` / `Referer` を追加で許可するオリジン(カンマ区切り)。`Origin` は完全一致、`Referer` はオリジンの境界での前方一致です(`https://app.example` は `https://app.example/x` には一致しますが、`https://app.example.evil.com/` には一致しません) |
 | `ALLOWED_HOSTNAME` | (空) | クライアントがこのプロキシに到達する際のホスト名。`localhost` と許可範囲の IP は常に許可されます |
 
 ## セキュリティ
@@ -49,9 +49,14 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
 - `Origin`、`Referer`、`Host` が許可されていなければ 403 です(DNS Rebinding / CSRF 対策)。`ALLOWED_HOSTNAME` を設定し忘れると、Jellyfin がサービス名でアクセスしたときに 403 になります。ログに拒否理由が出ます。
 - 公開するのは 4 つのエンドポイントだけです。Mirakurun の管理 API には到達できません。
 - **リバースプロキシの下に置かないでください。** Mirakurun のドキュメントのとおり、リバースプロキシ(特に HTTPS 化)はブラウザや Mirakurun の保護を迂回する可能性があり、危険度が増します。リバースプロキシの下では送信元アドレスがプロキシのものになり、IP 制限も意味を失います。外部から使う場合は、VPN や SSH トンネルを使ってください。
+- トンネルサービスを使う場合は、送信元アドレスがトンネルのものになるため、`ALLOW_*_CIDR_RANGES` の設定が必要になることがあります。その場合は、第三者がアクセスできないよう、慎重に設定してください。
 - **このプロキシは、Jellyfin と共有するネットワークの内側に置き、ポートをホストや LAN に公開しないでください**(`ports:` / `-p` / `-P`)。`docker-compose.example.yml` に `ports` がないのはこのためです。Mirakurun の公式 compose もホストネットワークモード(`network_mode: host`)でポートを公開しない構成で、ブリッジ + ポート公開にした Mirakurun にも同じ注意が当てはまりえます。ポートを公開すると、環境(userland proxy、IPv6、rootless、Docker Desktop、localhost 経由のアクセスなど)によっては、プロキシから見える送信元アドレスが Docker のブリッジのゲートウェイ(例: `172.17.0.1`)に書き換えられることがあります。このアドレスは既定の許可範囲(`172.16.0.0/12`)の内側なので、送信元 IP の制限が意味を失います。どうしてもポートを公開する場合は、コンテナの外側(ホストのファイアウォールなど)で到達できる相手を制限し、`ALLOW_*_CIDR_RANGES` もそれに合わせて絞ってください。
 - Mirakurun 側の `allowIPv4CidrRanges` を既定から絞っている場合は、このプロキシの送信元アドレスも許可に含めてください。
 - tsreadex は C++ の TS パーサで、上流(放送波由来)の入力を処理します。メモリ安全性の問題がありうるため、最新版に追従してください。
+
+## トラブルシューティング
+
+- **起動しても待ち受けない**(ログに `no permitted non-loopback IPv4 address yet; retrying` が繰り返し出る): 許可範囲(`ALLOW_IPV4_CIDR_RANGES`)に入る、ループバック以外の IPv4 アドレスが、このホスト(コンテナ)にありません。Docker のネットワークのサブネットが許可範囲(既定は `10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`)の外にあると起こります。そのサブネットを `ALLOW_IPV4_CIDR_RANGES` に加えてください。パブリック IP の範囲は加えないでください。
 
 ## ビルド
 
@@ -61,7 +66,7 @@ go test ./... -race
 docker build -t tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグからビルドされます
 ```
 
-テストは tsreadex の代わりにシェルスクリプトのスタブを使うため、実際の tsreadex は不要です(`/bin/sh` が必要です)。
+テストは tsreadex の代わりにシェルスクリプトのスタブを使うため、実際の tsreadex は不要です。ただし Linux 専用です(`/bin/sh`、`cat`、`sleep`、`head`、`tr`、`syscall.Kill`、ループバックの `127.0.0.2` を使います)。
 
 ## 実機での確認手順
 
