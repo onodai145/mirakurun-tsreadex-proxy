@@ -15,6 +15,7 @@ import (
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/access"
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/stream"
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/testutil"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -165,6 +166,24 @@ func TestXMLTVAndLogoPassThrough(t *testing.T) {
 	resp, body = do(t, http.MethodGet, e.proxy.URL+"/logo/3273601024", nil, "")
 	if resp.StatusCode != 200 || body != "PNGDATA" || resp.Header.Get("Content-Type") != "image/png" {
 		t.Errorf("logo: status=%d ct=%q body=%q", resp.StatusCode, resp.Header.Get("Content-Type"), body)
+	}
+}
+
+func TestPassThroughSendsOwnUserAgentUpstream(t *testing.T) {
+	var got atomic.Value
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got.Store(r.Header.Get("User-Agent"))
+		io.WriteString(w, "<tv></tv>")
+	}))
+	defer up.Close()
+	e := newEnvWithUpstream(t, up.URL, new(atomic.Int32), lan, "", 0)
+
+	resp, _ := do(t, http.MethodGet, e.proxy.URL+"/xmltv", http.Header{"User-Agent": {"Jellyfin/10"}}, "")
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if ua, _ := got.Load().(string); ua != upstream.UserAgent {
+		t.Errorf("upstream saw User-Agent %q, want %q", ua, upstream.UserAgent)
 	}
 }
 

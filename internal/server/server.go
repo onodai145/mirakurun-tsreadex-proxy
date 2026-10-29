@@ -55,10 +55,11 @@ func getOnly(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// fetch requests an upstream path. It sends no client headers. On failure it
+// fetch requests an upstream path. It sends no client headers, only the
+// proxy's own User-Agent. On failure it
 // has already answered the client and returns nil.
 func (h *handler) fetch(w http.ResponseWriter, r *http.Request, elem ...string) *http.Response {
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, upstream.URL(h.Upstream, "", elem...), nil)
+	req, err := upstream.NewRequest(r.Context(), upstream.URL(h.Upstream, "", elem...))
 	if err != nil {
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 		return nil
