@@ -75,23 +75,23 @@ func TestPermittedIP(t *testing.T) {
 }
 
 func TestPermittedOrigin(t *testing.T) {
-	p := newPolicy(t, "tsreadex-proxy", "https://app.example")
+	p := newPolicy(t, "mirakurun-tsreadex-proxy", "https://app.example")
 	cases := map[string]bool{
-		"http://localhost:3000":      true,
-		"http://LOCALHOST":           true,
-		"http://192.168.1.10:8080":   true,
-		"http://tsreadex-proxy:8080": true,
-		"http://TSREADEX-PROXY":      true,
-		"http://[fd00::1]:80":        true,
-		"http://evil.example":        false,
-		"http://8.8.8.8":             false,
-		"http://[::1]:8080":          false,
-		"null":                       false,
-		"":                           false,
-		"://":                        false,
-		"https://app.example":        true, // exact match with ALLOW_ORIGINS
-		"https://app.example/":       false,
-		"https://app.example.evil":   false,
+		"http://localhost:3000":                true,
+		"http://LOCALHOST":                     true,
+		"http://192.168.1.10:8080":             true,
+		"http://mirakurun-tsreadex-proxy:8080": true,
+		"http://MIRAKURUN-TSREADEX-PROXY":      true,
+		"http://[fd00::1]:80":                  true,
+		"http://evil.example":                  false,
+		"http://8.8.8.8":                       false,
+		"http://[::1]:8080":                    false,
+		"null":                                 false,
+		"":                                     false,
+		"://":                                  false,
+		"https://app.example":                  true, // exact match with ALLOW_ORIGINS
+		"https://app.example/":                 false,
+		"https://app.example.evil":             false,
 	}
 	for s, want := range cases {
 		if got := p.PermittedOrigin(s); got != want {
@@ -124,7 +124,7 @@ func TestPermittedReferer(t *testing.T) {
 
 func TestPermittedHostHeader(t *testing.T) {
 	p := newPolicy(t, "")
-	withName := newPolicy(t, "tsreadex-proxy")
+	withName := newPolicy(t, "mirakurun-tsreadex-proxy")
 	cases := []struct {
 		host string
 		p    *Policy
@@ -141,9 +141,9 @@ func TestPermittedHostHeader(t *testing.T) {
 		{"8.8.8.8", p, false},
 		{"evil.example", p, false},
 		{"evil.example:80", p, false},
-		{"tsreadex-proxy:8080", p, false}, // not configured
-		{"tsreadex-proxy:8080", withName, true},
-		{"TSREADEX-PROXY", withName, true},
+		{"mirakurun-tsreadex-proxy:8080", p, false}, // not configured
+		{"mirakurun-tsreadex-proxy:8080", withName, true},
+		{"MIRAKURUN-TSREADEX-PROXY", withName, true},
 		{"", p, false},
 		{"localhost/evil", p, false},
 		{"localhost?x", p, false},

@@ -13,14 +13,14 @@ RUN make LDFLAGS="-static -s"
 FROM golang:${GO_VERSION}-alpine AS proxy
 WORKDIR /src
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tsreadex-proxy ./cmd/tsreadex-proxy
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mirakurun-tsreadex-proxy ./cmd/mirakurun-tsreadex-proxy
 
 FROM scratch
 COPY --from=tsreadex /src/tsreadex /usr/local/bin/tsreadex
-COPY --from=proxy /out/tsreadex-proxy /usr/local/bin/tsreadex-proxy
+COPY --from=proxy /out/mirakurun-tsreadex-proxy /usr/local/bin/mirakurun-tsreadex-proxy
 COPY --from=tsreadex /src/License.txt /usr/share/licenses/tsreadex/License.txt
-COPY LICENSE /usr/share/licenses/tsreadex-proxy/LICENSE
+COPY LICENSE /usr/share/licenses/mirakurun-tsreadex-proxy/LICENSE
 ENV PATH=/usr/local/bin
 USER 65532:65532
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/tsreadex-proxy"]
+ENTRYPOINT ["/usr/local/bin/mirakurun-tsreadex-proxy"]

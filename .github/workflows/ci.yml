@@ -56,7 +56,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           load: true
-          tags: tsreadex-proxy:ci
+          tags: mirakurun-tsreadex-proxy:ci
           provenance: false
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,scope=${{ matrix.platform }},mode=max
@@ -65,9 +65,9 @@ jobs:
       # エラーメッセージで確認する。
       - name: スモークテスト
         run: |
-          out="$(docker run --rm --entrypoint /usr/local/bin/tsreadex tsreadex-proxy:ci 2>&1 || true)"
+          out="$(docker run --rm --entrypoint /usr/local/bin/tsreadex mirakurun-tsreadex-proxy:ci 2>&1 || true)"
           echo "$out"
           grep -q 'not enough arguments' <<< "$out"
-          out="$(docker run --rm tsreadex-proxy:ci 2>&1 || true)"
+          out="$(docker run --rm mirakurun-tsreadex-proxy:ci 2>&1 || true)"
           echo "$out"
           grep -q 'MIRAKURUN_URL is required' <<< "$out"

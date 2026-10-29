@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onodai145/tsreadex-proxy/internal/testutil"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/testutil"
 )
 
 type syncBuffer struct {
@@ -124,13 +124,13 @@ func TestMiddlewareHeaderChecks(t *testing.T) {
 		{"allowed referer", http.Header{"Referer": {"http://192.168.1.10/x"}}, "", 200},
 		{"evil referer", http.Header{"Referer": {"http://evil.example/x"}}, "", 403},
 		{"evil host (DNS rebinding)", nil, "evil.example", 403},
-		{"configured hostname", nil, "tsreadex-proxy:8080", 200},
+		{"configured hostname", nil, "mirakurun-tsreadex-proxy:8080", 200},
 		{"ipv6 literal host", nil, "[fd00::1]:8080", 200},
 		{"unconfigured name", nil, "other-name:8080", 403},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			srv, calls := start(t, newPolicy(t, "tsreadex-proxy"), "192.168.1.5:5555", discard)
+			srv, calls := start(t, newPolicy(t, "mirakurun-tsreadex-proxy"), "192.168.1.5:5555", discard)
 			resp, err := get(t, srv.URL, tc.header, tc.host)
 			if err != nil {
 				t.Fatal(err)

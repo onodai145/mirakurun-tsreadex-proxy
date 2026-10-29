@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/onodai145/tsreadex-proxy/internal/upstream"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream"
 )
 
 // Config configures a Streamer.
