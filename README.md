@@ -75,6 +75,7 @@ docker build -t tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグか�
 - `ci.yml`: push と PR で `gofmt`、`go vet`、`go test -race` と、両アーキテクチャの `docker build` + スモークテストを実行します。
 - `vuln.yml`: `govulncheck` を PR と毎週月曜に実行します。標準ライブラリの脆弱性は Go を更新するまで解消しないため、マージの必須チェックには入れていません。
 - `release.yml`: `v*` タグの push でテストを実行し、通れば GHCR にイメージを公開します(`git tag v1.2.3 && git push origin v1.2.3`)。`-rc.1` などのプレリリースのタグには `latest` も `1.2` も付きません。
+  イメージの公開に成功すると、GitHub のリリースページも自動生成されます(`-rc.1` などはプレリリース扱い)。
 - 初回の公開後、GitHub のパッケージの設定でイメージの可視性を Public にしてください(Actions から作られたパッケージは非公開で始まります)。
 - 実機での確認(次節)は自動化できないため、リリースのタグを打つ前に実施してください。
 
