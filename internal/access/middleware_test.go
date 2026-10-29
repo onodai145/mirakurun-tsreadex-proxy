@@ -191,12 +191,60 @@ func TestMiddlewareAccessLog(t *testing.T) {
 func TestMiddlewareLogsDenialReason(t *testing.T) {
 	var buf syncBuffer
 	srv, _ := start(t, newPolicy(t, ""), "192.168.1.5:5555", slog.New(slog.NewTextHandler(&buf, nil)))
-	resp, err := get(t, srv.URL, nil, "evil.example")
+	resp, err := get(t, srv.URL+"/probe?x=1", http.Header{"User-Agent": {"scanner/1.0"}}, "evil.example")
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if out := buf.String(); !strings.Contains(out, "denied") || !strings.Contains(out, "reason=host") {
-		t.Errorf("denial log should name the failed check:\n%s", out)
+	out := buf.String()
+	for _, want := range []string{"denied", "reason=host", "remote=192.168.1.5:5555", "method=GET", "/probe?x=1", "scanner/1.0"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("denial log missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestMiddlewareLogsSourceIPDenial(t *testing.T) {
+	var buf syncBuffer
+	srv, _ := start(t, newPolicy(t, ""), "8.8.8.8:1234", slog.New(slog.NewTextHandler(&buf, nil)))
+	if resp, err := get(t, srv.URL+"/probe?x=1", http.Header{"User-Agent": {"scanner/1.0"}}, ""); err == nil {
+		resp.Body.Close()
+		t.Fatal("expected the connection to be dropped")
+	}
+	// The denial is logged by the server goroutine, so wait for it.
+	deadline := time.Now().Add(2 * time.Second)
+	for !strings.Contains(buf.String(), "reason=source-ip") && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	out := buf.String()
+	for _, want := range []string{"denied", "reason=source-ip", "remote=8.8.8.8:1234", "method=GET", "/probe?x=1", "scanner/1.0"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("source-ip denial log missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestMiddlewareDenialLogIsBoundedAndOmitsHeaderValues(t *testing.T) {
+	var buf syncBuffer
+	srv, _ := start(t, newPolicy(t, ""), "192.168.1.5:5555", slog.New(slog.NewTextHandler(&buf, nil)))
+	long := strings.Repeat("a", 5000)
+	resp, err := get(t, srv.URL+"/"+long, http.Header{"User-Agent": {strings.Repeat("b", 5000)}}, "evil.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	out := buf.String()
+	if !strings.Contains(out, "reason=host") {
+		t.Fatalf("the denial was not logged:\n%.300s", out)
+	}
+	if strings.Contains(out, strings.Repeat("a", 300)) || strings.Contains(out, strings.Repeat("b", 300)) {
+		t.Errorf("attacker-controlled URL / User-Agent must be truncated in the denial log, got %d bytes", len(out))
+	}
+	if !strings.Contains(out, "(truncated)") {
+		t.Errorf("a truncated value should be marked as such:\n%.400s", out)
+	}
+	if strings.Contains(out, "evil.example") {
+		t.Errorf("the offending Host value must not be logged:\n%.400s", out)
 	}
 }

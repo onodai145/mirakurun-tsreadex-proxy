@@ -85,9 +85,13 @@ func run() error {
 	}
 
 	log.Info("shutting down")
+	// Restore the default signal behaviour so that a second Ctrl-C ends the
+	// process at once instead of being swallowed during the grace period.
+	stop()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Warn("graceful shutdown did not finish; closing the remaining connections", "error", err)
 		srv.Close() // streams that outlive the grace period are cut
 	}
 	return nil

@@ -19,8 +19,16 @@ type Policy struct {
 
 // NewPolicy parses the CIDR ranges. hostname is the extra hostname clients
 // use to reach the proxy; origins are extra permitted Origin/Referer values.
+// Empty entries are ignored (an empty origin would match every Referer that
+// starts with "/", "?" or "#"), and the slice is copied. This is a safeguard
+// for other callers: config.Load already drops empty entries.
 func NewPolicy(v4, v6 []string, hostname string, origins []string) (*Policy, error) {
-	p := &Policy{hostname: strings.ToLower(hostname), origins: origins}
+	p := &Policy{hostname: strings.ToLower(hostname)}
+	for _, o := range origins {
+		if o = strings.TrimSpace(o); o != "" {
+			p.origins = append(p.origins, o)
+		}
+	}
 	for _, s := range v4 {
 		pf, err := netip.ParsePrefix(s)
 		if err != nil || !pf.Addr().Is4() {

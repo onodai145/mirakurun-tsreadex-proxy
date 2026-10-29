@@ -157,3 +157,36 @@ func TestPermittedHostHeader(t *testing.T) {
 		}
 	}
 }
+
+func TestNewPolicyIgnoresEmptyOrigins(t *testing.T) {
+	p, err := NewPolicy(defaultV4, defaultV6, "", []string{"", "  ", "https://app.example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.PermittedOrigin("") {
+		t.Error("an empty ALLOW_ORIGINS entry must not permit an empty Origin")
+	}
+	for _, ref := range []string{"/path", "?q=1", "#frag"} {
+		if p.PermittedReferer(ref) {
+			t.Errorf("an empty ALLOW_ORIGINS entry must not permit the Referer %q", ref)
+		}
+	}
+	if !p.PermittedOrigin("https://app.example") {
+		t.Error("a real entry next to the empty ones must still work")
+	}
+}
+
+func TestNewPolicyCopiesOrigins(t *testing.T) {
+	origins := []string{"https://app.example"}
+	p, err := NewPolicy(defaultV4, defaultV6, "", origins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origins[0] = "https://evil.example"
+	if p.PermittedOrigin("https://evil.example") {
+		t.Error("changing the caller's slice after NewPolicy must not change the policy")
+	}
+	if !p.PermittedOrigin("https://app.example") {
+		t.Error("the original entry must still be permitted")
+	}
+}

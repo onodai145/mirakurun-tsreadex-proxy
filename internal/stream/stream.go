@@ -139,7 +139,15 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 		s.fail(w, r, &timedOut, "tsreadex produced no output", rerr)
 		return
 	}
-	timer.Stop()
+	if !timer.Stop() {
+		// The timer fired between the first read and now: it has cancelled ctx
+		// (killing tsreadex), so what we hold is the tail of a dying stream.
+		// Nothing has been sent yet, so answer with the timeout instead of
+		// starting a response that would look like a short, clean one.
+		timedOut.Store(true)
+		s.fail(w, r, &timedOut, "tsreadex output arrived late", nil)
+		return
+	}
 
 	w.Header().Set("Content-Type", "video/MP2T")
 	w.Header().Set("Cache-Control", "no-store")

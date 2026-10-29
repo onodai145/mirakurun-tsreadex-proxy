@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/netip"
 	"time"
+	"unicode/utf8"
 )
 
 // Middleware applies the access checks in Mirakurun's order (source IP,
@@ -13,12 +14,12 @@ import (
 func (p *Policy) Middleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !p.sourceAllowed(r) {
-			log.Warn("denied", "reason", "source-ip", "remote", r.RemoteAddr)
+			logDenied(log, r, "source-ip")
 			dropConnection(w)
 			return
 		}
 		if reason := p.headerViolation(r); reason != "" {
-			log.Warn("denied", "reason", reason, "remote", r.RemoteAddr)
+			logDenied(log, r, reason)
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -39,6 +40,36 @@ func (p *Policy) Middleware(log *slog.Logger, next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(rec, r)
 	})
+}
+
+// maxDeniedLogField bounds the attacker-controlled fields of a denial log
+// line: a request may carry about 1 MiB of URL and User-Agent, and a denial is
+// logged before any identity check.
+const maxDeniedLogField = 256
+
+// logDenied records a refused request. The offending header values (Host,
+// Origin, Referer) are attacker-controlled and are deliberately not logged;
+// the URL and User-Agent are truncated, and slog quotes what it logs.
+func logDenied(log *slog.Logger, r *http.Request, reason string) {
+	log.Warn("denied",
+		"reason", reason,
+		"remote", r.RemoteAddr,
+		"method", r.Method,
+		"url", clip(r.URL.RequestURI()),
+		"user_agent", clip(r.UserAgent()))
+}
+
+// clip shortens s to at most maxDeniedLogField bytes without cutting a UTF-8
+// sequence in half, and marks the cut.
+func clip(s string) string {
+	if len(s) <= maxDeniedLogField {
+		return s
+	}
+	cut := maxDeniedLogField
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "...(truncated)"
 }
 
 // sourceAllowed judges the connection's own address; forwarding headers such
