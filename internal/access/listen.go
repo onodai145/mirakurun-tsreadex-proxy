@@ -114,3 +114,33 @@ func Listen(ctx context.Context, p *Policy, port int, log *slog.Logger, enumerat
 	}
 	return listeners, nil
 }
+
+// FilterListener wraps ln so that a connection from outside the permitted
+// ranges is closed inside Accept, before the HTTP server reads anything from
+// it. Go's server would otherwise answer a malformed request or an oversized
+// header with 400/431 ahead of Middleware. Middleware still checks the source
+// address as a second line of defence.
+func (p *Policy) FilterListener(ln net.Listener, log *slog.Logger) net.Listener {
+	return &filterListener{Listener: ln, policy: p, log: log}
+}
+
+type filterListener struct {
+	net.Listener
+	policy *Policy
+	log    *slog.Logger
+}
+
+func (l *filterListener) Accept() (net.Conn, error) {
+	for {
+		c, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		remote := c.RemoteAddr().String()
+		if ap, err := netip.ParseAddrPort(remote); err == nil && l.policy.PermittedIP(ap.Addr()) {
+			return c, nil
+		}
+		c.Close()
+		l.log.Warn("denied", "reason", "source-ip", "remote", remote, "stage", "accept")
+	}
+}
