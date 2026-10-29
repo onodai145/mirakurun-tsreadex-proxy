@@ -1,0 +1,5 @@
+.git
+docs
+*.md
+/tsreadex-proxy
+/bin
