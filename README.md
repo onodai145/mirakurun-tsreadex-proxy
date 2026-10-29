@@ -92,3 +92,9 @@ docker build -t tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグか�
 - [ ] 許可範囲外のホストから接続すると、応答なしで切断される(許可範囲内のホストからは応答する)。
 - [ ] (ポートを公開する構成を試す場合のみ。非推奨)ポートを公開した状態で、許可範囲外のホストと許可範囲内のホストからそれぞれ接続し、プロキシのログの `remote=` に実際のクライアントのアドレスが出るか比べる。`remote=` がブリッジのゲートウェイのアドレスになっていれば、その構成では送信元 IP の制限は効いていない(スペック §11)。
 - [ ] 許可範囲外のアドレスで待ち受けていないこと(`ss -ltn` で待ち受けアドレスを確認する)。
+
+## ライセンス
+
+このリポジトリは [MIT ライセンス](LICENSE) です。
+
+Docker イメージには、MIT ライセンスの [tsreadex](https://github.com/xtne6f/tsreadex)(Copyright (c) 2021 xtne6f)のバイナリを同梱しています。そのライセンス文は、イメージ内の `/usr/share/licenses/tsreadex/License.txt` にあります。

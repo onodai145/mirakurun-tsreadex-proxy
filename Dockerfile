@@ -18,6 +18,8 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tsreadex-proxy ./c
 FROM scratch
 COPY --from=tsreadex /src/tsreadex /usr/local/bin/tsreadex
 COPY --from=proxy /out/tsreadex-proxy /usr/local/bin/tsreadex-proxy
+COPY --from=tsreadex /src/License.txt /usr/share/licenses/tsreadex/License.txt
+COPY LICENSE /usr/share/licenses/tsreadex-proxy/LICENSE
 ENV PATH=/usr/local/bin
 USER 65532:65532
 EXPOSE 8080
