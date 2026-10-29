@@ -3,7 +3,7 @@ ARG GO_VERSION=1.26
 ARG TSREADEX_REF=master-260428
 
 # tsreadex は依存のない C++11。静的リンクして scratch に載せる。
-FROM alpine:3.20 AS tsreadex
+FROM alpine:3.24 AS tsreadex
 ARG TSREADEX_REF
 RUN apk add --no-cache build-base git
 RUN git clone --depth 1 --branch "${TSREADEX_REF}" https://github.com/xtne6f/tsreadex.git /src
