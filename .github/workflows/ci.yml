@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイル:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+      - run: go vet ./...
+      # テストは Linux 専用(README「ビルド」を参照)。
+      - run: go test ./... -race
+
+  # 公開はしない。Dockerfile が壊れていないこと(tsreadex のタグ名を含む)と、
+  # 両アーキテクチャでビルドできることを、リリースの前に確認する。
+  image:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: tsreadex-proxy:ci
+          provenance: false
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,scope=${{ matrix.platform }},mode=max
+      # scratch イメージなので、同梱の 2 つの実行ファイルがこのアーキテクチャで
+      # 起動できること(静的リンクされていること)だけを、引数なしの起動時の
+      # エラーメッセージで確認する。
+      - name: スモークテスト
+        run: |
+          out="$(docker run --rm --entrypoint /usr/local/bin/tsreadex tsreadex-proxy:ci 2>&1 || true)"
+          echo "$out"
+          grep -q 'not enough arguments' <<< "$out"
+          out="$(docker run --rm tsreadex-proxy:ci 2>&1 || true)"
+          echo "$out"
+          grep -q 'MIRAKURUN_URL is required' <<< "$out"

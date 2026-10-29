@@ -1,0 +1,26 @@
+name: Vulnerability check
+
+# 既知の脆弱性の検出。標準ライブラリの脆弱性は、コードを変えなくても後から見つかるため、
+# スケジュールでも実行する。マージの必須チェックには入れない(Go の更新で解消する)。
+on:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      # govulncheck の新しい版は新しい Go を要求する(v1.9.0 は Go 1.26 以上)。
+      # go.mod の Go で動く最後の系列に固定している。Go を更新したら、この版も上げる。
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...

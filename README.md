@@ -21,6 +21,8 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
    - チューナー: 種類は **M3U Tuner**、URL は `http://tsreadex-proxy:8080/playlist.m3u`
    - 番組表: 種類は **XMLTV**、URL は `http://tsreadex-proxy:8080/xmltv`
 
+イメージは GHCR で公開しています(`linux/amd64` と `linux/arm64`)。`docker-compose.example.yml` の `build: .` の代わりに `image: ghcr.io/onodai145/tsreadex-proxy:<バージョン>` を指定すると、ビルドせずに使えます。タグは `1.2.3`、`1.2`、`latest` です(先頭の `v` は付きません)。
+
 ## 設定
 
 環境変数が主です。フラグは環境変数名を小文字のケバブケースにしたものです(例: `MIRAKURUN_URL` → `-mirakurun-url`)。フラグは環境変数より優先されます。
@@ -67,6 +69,14 @@ docker build -t tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグか�
 ```
 
 テストは tsreadex の代わりにシェルスクリプトのスタブを使うため、実際の tsreadex は不要です。ただし Linux 専用です(`/bin/sh`、`cat`、`sleep`、`head`、`tr`、`syscall.Kill`、ループバックの `127.0.0.2` を使います)。
+
+## CI とリリース
+
+- `ci.yml`: push と PR で `gofmt`、`go vet`、`go test -race` と、両アーキテクチャの `docker build` + スモークテストを実行します。
+- `vuln.yml`: `govulncheck` を PR と毎週月曜に実行します。標準ライブラリの脆弱性は Go を更新するまで解消しないため、マージの必須チェックには入れていません。
+- `release.yml`: `v*` タグの push でテストを実行し、通れば GHCR にイメージを公開します(`git tag v1.2.3 && git push origin v1.2.3`)。`-rc.1` などのプレリリースのタグには `latest` も `1.2` も付きません。
+- 初回の公開後、GitHub のパッケージの設定でイメージの可視性を Public にしてください(Actions から作られたパッケージは非公開で始まります)。
+- 実機での確認(次節)は自動化できないため、リリースのタグを打つ前に実施してください。
 
 ## 実機での確認手順
 
