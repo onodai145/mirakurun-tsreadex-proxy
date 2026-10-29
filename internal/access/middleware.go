@@ -13,12 +13,12 @@ import (
 func (p *Policy) Middleware(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !p.sourceAllowed(r) {
-			log.Warn("denied", "reason", "source-ip", "remote", r.RemoteAddr)
+			logDenied(log, r, "source-ip")
 			dropConnection(w)
 			return
 		}
 		if reason := p.headerViolation(r); reason != "" {
-			log.Warn("denied", "reason", reason, "remote", r.RemoteAddr)
+			logDenied(log, r, reason)
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -39,6 +39,18 @@ func (p *Policy) Middleware(log *slog.Logger, next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(rec, r)
 	})
+}
+
+// logDenied records a refused request. The offending header values (Host,
+// Origin, Referer) are attacker-controlled and are deliberately not logged;
+// slog quotes the values it does log.
+func logDenied(log *slog.Logger, r *http.Request, reason string) {
+	log.Warn("denied",
+		"reason", reason,
+		"remote", r.RemoteAddr,
+		"method", r.Method,
+		"url", r.URL.RequestURI(),
+		"user_agent", r.UserAgent())
 }
 
 // sourceAllowed judges the connection's own address; forwarding headers such
