@@ -1,17 +1,17 @@
 # Jellyfin と Mirakurun/mirakc が参加している Docker ネットワークに、
 # このプロキシを参加させる例。プロキシの ports は公開しない(LAN 内専用)。
 services:
-  tsreadex-proxy:
-    # リリース済みのイメージ(linux/amd64 と linux/arm64)。タグは 0.1.0、0.1、latest の形式。
+  mirakurun-tsreadex-proxy:
+    # リリース済みのイメージ(linux/amd64 と linux/arm64)。タグは 0.2.0、0.2、latest の形式。
     # 更新は、バージョンを確認してタグを書き換える。ソースからビルドするときは、
     # この行を `build: .` に置き換える。
-    image: ghcr.io/onodai145/tsreadex-proxy:0.1.0
+    image: ghcr.io/onodai145/mirakurun-tsreadex-proxy:0.2.0
     restart: unless-stopped
     environment:
       # Mirakurun/mirakc の URL(同じネットワーク上のサービス名)。
       MIRAKURUN_URL: http://mirakurun:40772
       # Jellyfin が到達する際のホスト名(このサービス名)。Host 検証に必要。
-      ALLOWED_HOSTNAME: tsreadex-proxy
+      ALLOWED_HOSTNAME: mirakurun-tsreadex-proxy
       # 必要なら調整(既定値は README の表を参照)。
       # TSREADEX_ARGS: "-x 18/38/39 -b 1 -c 1 -u 2 -d 13"
       # MAX_STREAMS: "8"

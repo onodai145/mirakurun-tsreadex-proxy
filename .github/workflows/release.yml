@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  REGISTRY_IMAGE: ghcr.io/onodai145/tsreadex-proxy
+  REGISTRY_IMAGE: ghcr.io/onodai145/mirakurun-tsreadex-proxy
 
 jobs:
   test:
