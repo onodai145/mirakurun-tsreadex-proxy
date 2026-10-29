@@ -62,7 +62,13 @@ type env struct {
 func newEnv(t *testing.T, remote, publicBase string, maxPlaylist int64) env {
 	t.Helper()
 	up, hits := fakeUpstream(t)
-	base, _ := url.Parse(up.URL)
+	return newEnvWithUpstream(t, up.URL, hits, remote, publicBase, maxPlaylist)
+}
+
+// newEnvWithUpstream is newEnv against an upstream the test provides.
+func newEnvWithUpstream(t *testing.T, upstreamURL string, hits *atomic.Int32, remote, publicBase string, maxPlaylist int64) env {
+	t.Helper()
+	base, _ := url.Parse(upstreamURL)
 	streamer, err := stream.New(stream.Config{
 		Upstream:         base,
 		Tsreadex:         testutil.StubScript(t, "exec cat"),
@@ -303,6 +309,30 @@ func TestUpstreamErrorStatusPassesThroughWithoutBody(t *testing.T) {
 		}
 		if strings.Contains(body, "SECRET") || strings.Contains(body, base.Host) {
 			t.Errorf("%s: the upstream detail leaked: %q", path, body)
+		}
+	}
+}
+
+func TestPassThroughCutsConnectionWhenUpstreamBodyIsTruncated(t *testing.T) {
+	// The upstream promises 1000 bytes, sends 20 and closes the connection.
+	truncated := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		w.Header().Set("Content-Length", "1000")
+		io.WriteString(w, `<tv><channel id="1">`)
+	}))
+	defer truncated.Close()
+	e := newEnvWithUpstream(t, truncated.URL, new(atomic.Int32), lan, "", 0)
+
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: 5 * time.Second}
+	for _, path := range []string{"/xmltv", "/logo/1"} {
+		resp, err := client.Get(e.proxy.URL + path)
+		if err != nil {
+			continue // cut before any header was flushed: the client saw a failure
+		}
+		_, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err == nil {
+			t.Errorf("%s: a truncated upstream body must cut the connection, not end the response cleanly", path)
 		}
 	}
 }

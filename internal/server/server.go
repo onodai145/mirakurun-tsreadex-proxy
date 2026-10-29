@@ -135,7 +135,13 @@ func (h *handler) passThrough(w http.ResponseWriter, r *http.Request, defaultTyp
 		ct = defaultType
 	}
 	w.Header().Set("Content-Type", ct)
-	io.Copy(w, resp.Body)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		// The headers are already sent, so a truncated body would look like a
+		// complete one (a partial XMLTV would be imported as the whole guide).
+		// Cut the connection instead. A client that went away also lands here,
+		// which is harmless: http.ErrAbortHandler is not logged by net/http.
+		panic(http.ErrAbortHandler)
+	}
 }
 
 func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
