@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
@@ -182,5 +183,48 @@ func TestParseTsreadexArgsErrorMentionsOption(t *testing.T) {
 	_, err := ParseTsreadexArgs("-n 1")
 	if err == nil || !strings.Contains(err.Error(), "-n") {
 		t.Errorf("error should name the option, got %v", err)
+	}
+}
+
+func TestLoadLogLevel(t *testing.T) {
+	base := map[string]string{"MIRAKURUN_URL": "http://m:40772"}
+	with := func(level string) map[string]string {
+		m := map[string]string{"LOG_LEVEL": level}
+		for k, v := range base {
+			m[k] = v
+		}
+		return m
+	}
+
+	c, err := Load(nil, env(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.LogLevel != slog.LevelInfo {
+		t.Errorf("default LogLevel = %v, want INFO", c.LogLevel)
+	}
+
+	for in, want := range map[string]slog.Level{
+		"debug": slog.LevelDebug, "info": slog.LevelInfo, "warn": slog.LevelWarn, "error": slog.LevelError, "DEBUG": slog.LevelDebug,
+	} {
+		c, err := Load(nil, env(with(in)))
+		if err != nil {
+			t.Errorf("LOG_LEVEL=%s: %v", in, err)
+			continue
+		}
+		if c.LogLevel != want {
+			t.Errorf("LOG_LEVEL=%s: LogLevel = %v, want %v", in, c.LogLevel, want)
+		}
+	}
+
+	c, err = Load([]string{"-log-level", "warn"}, env(with("debug")))
+	if err != nil || c.LogLevel != slog.LevelWarn {
+		t.Errorf("the flag must win over the environment: %v, %v", c, err)
+	}
+
+	for _, bad := range []string{"trace", "verbose", "1"} {
+		if _, err := Load(nil, env(with(bad))); err == nil || !strings.Contains(err.Error(), "LOG_LEVEL") {
+			t.Errorf("LOG_LEVEL=%s: err = %v, want a LOG_LEVEL error", bad, err)
+		}
 	}
 }

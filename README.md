@@ -50,6 +50,7 @@ Jellyfin ──▶ mirakurun-tsreadex-proxy ──▶ Mirakurun / mirakc
 | `ALLOW_IPV6_CIDR_RANGES` | `fc00::/7` | 許可する送信元 IPv6(Mirakurun の既定と同じ) |
 | `ALLOW_ORIGINS` | (空) | `Origin` / `Referer` を追加で許可するオリジン(カンマ区切り)。`Origin` は完全一致、`Referer` はオリジンの境界での前方一致です(`https://app.example` は `https://app.example/x` には一致しますが、`https://app.example.evil.com/` には一致しません) |
 | `ALLOWED_HOSTNAME` | (空) | クライアントがこのプロキシに到達する際のホスト名。`localhost` と許可範囲の IP は常に許可されます |
+| `LOG_LEVEL` | `info` | ログレベル(`debug` / `info` / `warn` / `error`)。`warn` 以上にすると、tsreadex の stderr などの Info ログも出なくなります。`debug` で何が出るかは「デバッグログ」を参照 |
 
 ## セキュリティ
 

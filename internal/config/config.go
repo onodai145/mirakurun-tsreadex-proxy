@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ type Config struct {
 	AllowIPv6        []string
 	AllowOrigins     []string
 	AllowedHostname  string
+	LogLevel         slog.Level
 }
 
 // Load reads the configuration. Each setting comes from a flag (the
@@ -56,6 +58,7 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 	v6 := str("allow-ipv6-cidr-ranges", "ALLOW_IPV6_CIDR_RANGES", defaultIPv6Ranges)
 	origins := str("allow-origins", "ALLOW_ORIGINS", "")
 	hostname := str("allowed-hostname", "ALLOWED_HOSTNAME", "")
+	logLevel := str("log-level", "LOG_LEVEL", "info")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -95,7 +98,24 @@ func Load(args []string, getenv func(string) string) (*Config, error) {
 	if c.TsreadexArgs, err = ParseTsreadexArgs(*tsArgs); err != nil {
 		return nil, err
 	}
+	if c.LogLevel, err = parseLogLevel(*logLevel); err != nil {
+		return nil, err
+	}
 	return c, nil
+}
+
+func parseLogLevel(s string) (slog.Level, error) {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	}
+	return 0, fmt.Errorf("LOG_LEVEL: %q must be one of debug, info, warn, error", s)
 }
 
 func parseInt(name, s string, min, max int) (int, error) {

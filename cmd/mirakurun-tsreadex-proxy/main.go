@@ -35,7 +35,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	log := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 
 	policy, err := access.NewPolicy(cfg.AllowIPv4, cfg.AllowIPv6, cfg.AllowedHostname, cfg.AllowOrigins)
 	if err != nil {
