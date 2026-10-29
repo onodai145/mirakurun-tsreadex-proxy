@@ -121,3 +121,23 @@ jobs:
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: docker buildx imagetools inspect "${REGISTRY_IMAGE}:${VERSION}"
+
+  # イメージの公開に成功したあとで、GitHub のリリースページを作る。
+  # contents: write が必要なのはこのジョブだけ。
+  github-release:
+    needs: merge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: リリースを作る
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # v1.2.3-rc.1 のようにハイフンを含むタグはプレリリースにする。
+          args=(--repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes)
+          if [[ "$TAG" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG" "${args[@]}"
