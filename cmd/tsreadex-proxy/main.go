@@ -59,6 +59,9 @@ func run() error {
 
 	listeners, err := access.Listen(ctx, policy, cfg.ListenPort, log, access.SystemAddrs, 5*time.Second)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil // shutdown requested while waiting for an address
+		}
 		return err
 	}
 	if len(listeners) == 0 {
