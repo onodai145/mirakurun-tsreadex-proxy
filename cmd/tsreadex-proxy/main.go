@@ -91,7 +91,7 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Warn("graceful shutdown timed out; closing the remaining connections", "error", err)
+		log.Warn("graceful shutdown did not finish; closing the remaining connections", "error", err)
 		srv.Close() // streams that outlive the grace period are cut
 	}
 	return nil

@@ -145,7 +145,7 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 		// Nothing has been sent yet, so answer with the timeout instead of
 		// starting a response that would look like a short, clean one.
 		timedOut.Store(true)
-		s.fail(w, r, &timedOut, "output arrived after the first-byte timeout", nil)
+		s.fail(w, r, &timedOut, "tsreadex output arrived late", nil)
 		return
 	}
 
