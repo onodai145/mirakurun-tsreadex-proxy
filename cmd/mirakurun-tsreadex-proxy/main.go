@@ -1,4 +1,4 @@
-// Command tsreadex-proxy serves Mirakurun/mirakc live streams through
+// Command mirakurun-tsreadex-proxy serves Mirakurun/mirakc live streams through
 // tsreadex over HTTP, for use as a Jellyfin Live TV tuner.
 package main
 
@@ -13,15 +13,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/onodai145/tsreadex-proxy/internal/access"
-	"github.com/onodai145/tsreadex-proxy/internal/config"
-	"github.com/onodai145/tsreadex-proxy/internal/server"
-	"github.com/onodai145/tsreadex-proxy/internal/stream"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/access"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/config"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/server"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/stream"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "tsreadex-proxy:", err)
+		fmt.Fprintln(os.Stderr, "mirakurun-tsreadex-proxy:", err)
 		os.Exit(1)
 	}
 }

@@ -61,7 +61,7 @@ func TestLoadOverridesAndNormalizes(t *testing.T) {
 		"FIRST_BYTE_TIMEOUT":     "500ms",
 		"ALLOW_IPV4_CIDR_RANGES": "192.168.0.0/16, 10.0.0.0/8",
 		"ALLOW_ORIGINS":          "https://a.example,https://b.example",
-		"ALLOWED_HOSTNAME":       "tsreadex-proxy",
+		"ALLOWED_HOSTNAME":       "mirakurun-tsreadex-proxy",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestLoadOverridesAndNormalizes(t *testing.T) {
 	if !reflect.DeepEqual(c.AllowOrigins, []string{"https://a.example", "https://b.example"}) {
 		t.Errorf("AllowOrigins = %v", c.AllowOrigins)
 	}
-	if c.AllowedHostname != "tsreadex-proxy" {
+	if c.AllowedHostname != "mirakurun-tsreadex-proxy" {
 		t.Errorf("AllowedHostname = %q", c.AllowedHostname)
 	}
 }

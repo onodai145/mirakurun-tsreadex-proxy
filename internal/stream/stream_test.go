@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onodai145/tsreadex-proxy/internal/testutil"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/testutil"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))

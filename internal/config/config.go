@@ -36,7 +36,7 @@ type Config struct {
 // lower-case, hyphenated form of the variable name), then the environment
 // variable, then the default.
 func Load(args []string, getenv func(string) string) (*Config, error) {
-	fs := flag.NewFlagSet("tsreadex-proxy", flag.ContinueOnError)
+	fs := flag.NewFlagSet("mirakurun-tsreadex-proxy", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	str := func(name, envName, def string) *string {
 		v := def

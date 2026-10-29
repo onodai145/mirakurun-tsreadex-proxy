@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onodai145/tsreadex-proxy/internal/access"
-	"github.com/onodai145/tsreadex-proxy/internal/stream"
-	"github.com/onodai145/tsreadex-proxy/internal/testutil"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/access"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/stream"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/testutil"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -138,9 +138,9 @@ func TestPlaylistIsRewrittenToTheRequestHost(t *testing.T) {
 }
 
 func TestPlaylistUsesPublicBaseURL(t *testing.T) {
-	e := newEnv(t, lan, "http://tsreadex-proxy:8080", 0)
+	e := newEnv(t, lan, "http://mirakurun-tsreadex-proxy:8080", 0)
 	_, body := do(t, http.MethodGet, e.proxy.URL+"/playlist.m3u", nil, "")
-	if !strings.Contains(body, "http://tsreadex-proxy:8080/stream/3273601024") {
+	if !strings.Contains(body, "http://mirakurun-tsreadex-proxy:8080/stream/3273601024") {
 		t.Errorf("PUBLIC_BASE_URL was not used:\n%s", body)
 	}
 }

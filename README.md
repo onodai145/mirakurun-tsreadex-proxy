@@ -1,9 +1,9 @@
-# tsreadex-proxy
+# mirakurun-tsreadex-proxy
 
-[tsreadex](https://github.com/xtne6f/tsreadex) を HTTP プロキシとして包み、Jellyfin の Live TV から Mirakurun / mirakc のライブ視聴を、副音声・字幕が安定化された状態で見られるようにします。
+[tsreadex](https://github.com/xtne6f/tsreadex) を HTTP プロキシとして包み、Jellyfin の Live TV から Mirakurun / mirakc のライブ視聴を、副音声・字幕が安定化された状態で見られるようにします。mirakc も Mirakurun 互換 API として、同じように使えます。
 
 ```
-Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
+Jellyfin ──▶ mirakurun-tsreadex-proxy ──▶ Mirakurun / mirakc
               (tsreadex を通す)
 ```
 
@@ -18,10 +18,18 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
 1. `docker-compose.example.yml` を参考に、Jellyfin と Mirakurun が参加しているネットワークにプロキシを追加します。
 2. `MIRAKURUN_URL` と `ALLOWED_HOSTNAME`(Jellyfin から見たこのコンテナのサービス名)を設定します。
 3. Jellyfin の Live TV 設定で、次の 2 つを登録します(画面の名称は Jellyfin のバージョンで異なります)。
-   - チューナー: 種類は **M3U Tuner**、URL は `http://tsreadex-proxy:8080/playlist.m3u`
-   - 番組表: 種類は **XMLTV**、URL は `http://tsreadex-proxy:8080/xmltv`
+   - チューナー: 種類は **M3U Tuner**、URL は `http://mirakurun-tsreadex-proxy:8080/playlist.m3u`
+   - 番組表: 種類は **XMLTV**、URL は `http://mirakurun-tsreadex-proxy:8080/xmltv`
 
-イメージは GHCR で公開しています(`linux/amd64` と `linux/arm64`)。`docker-compose.example.yml` は `ghcr.io/onodai145/tsreadex-proxy` のリリース済みイメージを使います。タグは `1.2.3`、`1.2`、`latest` です(先頭の `v` は付きません)。再現性のため、`latest` ではなくバージョンを指定してください。ソースからビルドするときは、`image:` の代わりに `build: .` を指定します。
+イメージは GHCR で公開しています(`linux/amd64` と `linux/arm64`)。`docker-compose.example.yml` は `ghcr.io/onodai145/mirakurun-tsreadex-proxy` のリリース済みイメージを使います。タグは `1.2.3`、`1.2`、`latest` です(先頭の `v` は付きません)。再現性のため、`latest` ではなくバージョンを指定してください。ソースからビルドするときは、`image:` の代わりに `build: .` を指定します。
+
+## 旧名称からの移行
+
+このプロジェクトは `v0.2.0` で、`tsreadex-proxy` から `mirakurun-tsreadex-proxy` に改名されました。
+
+- 旧イメージ `ghcr.io/onodai145/tsreadex-proxy` は `0.1.1` までで、今後は更新されません。
+- 新しいイメージ `ghcr.io/onodai145/mirakurun-tsreadex-proxy` の `0.2.0` 以降に切り替えてください。環境変数、フラグ、エンドポイントは変わりません。
+- compose のサービス名を変える場合は、`ALLOWED_HOSTNAME` と、Jellyfin に登録した URL(`http://<サービス名>:8080/...`)も合わせてください。
 
 ## 設定
 
@@ -63,9 +71,9 @@ Jellyfin ──▶ tsreadex-proxy ──▶ Mirakurun / mirakc
 ## ビルド
 
 ```bash
-go build -o tsreadex-proxy ./cmd/tsreadex-proxy
+go build -o mirakurun-tsreadex-proxy ./cmd/mirakurun-tsreadex-proxy
 go test ./... -race
-docker build -t tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグからビルドされます
+docker build -t mirakurun-tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF のタグからビルドされます
 ```
 
 テストは tsreadex の代わりにシェルスクリプトのスタブを使うため、実際の tsreadex は不要です。ただし Linux 専用です(`/bin/sh`、`cat`、`sleep`、`head`、`tr`、`syscall.Kill`、ループバックの `127.0.0.2` を使います)。

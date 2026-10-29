@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/onodai145/tsreadex-proxy/internal/playlist"
-	"github.com/onodai145/tsreadex-proxy/internal/stream"
-	"github.com/onodai145/tsreadex-proxy/internal/upstream"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/playlist"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/stream"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream"
 )
 
 const defaultMaxPlaylistBytes = 8 << 20
