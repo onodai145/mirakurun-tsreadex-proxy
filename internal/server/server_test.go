@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"net/http"
@@ -314,25 +315,48 @@ func TestUpstreamErrorStatusPassesThroughWithoutBody(t *testing.T) {
 }
 
 func TestPassThroughCutsConnectionWhenUpstreamBodyIsTruncated(t *testing.T) {
-	// The upstream promises 1000 bytes, sends 20 and closes the connection.
-	truncated := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/xml")
-		w.Header().Set("Content-Length", "1000")
-		io.WriteString(w, `<tv><channel id="1">`)
-	}))
-	defer truncated.Close()
-	e := newEnvWithUpstream(t, truncated.URL, new(atomic.Int32), lan, "", 0)
+	cases := []struct {
+		name string
+		sent int
+		// A body that fits the server's write buffer never leaves the proxy, so
+		// the client only sees a failed request. A larger one is flushed first:
+		// the headers (200) reach the client and the body read must then fail.
+		headersReachClient bool
+	}{
+		{"small body, nothing flushed yet", 20, false},
+		{"large body, headers already sent", 256 << 10, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var hits atomic.Int32
+			// The upstream promises 4 MiB, sends tc.sent bytes and closes the connection.
+			truncated := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				hits.Add(1)
+				w.Header().Set("Content-Type", "application/xml")
+				w.Header().Set("Content-Length", "4194304")
+				w.Write(bytes.Repeat([]byte("x"), tc.sent))
+			}))
+			defer truncated.Close()
+			e := newEnvWithUpstream(t, truncated.URL, new(atomic.Int32), lan, "", 0)
 
-	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: 5 * time.Second}
-	for _, path := range []string{"/xmltv", "/logo/1"} {
-		resp, err := client.Get(e.proxy.URL + path)
-		if err != nil {
-			continue // cut before any header was flushed: the client saw a failure
-		}
-		_, err = io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err == nil {
-			t.Errorf("%s: a truncated upstream body must cut the connection, not end the response cleanly", path)
-		}
+			client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}, Timeout: 5 * time.Second}
+			for _, path := range []string{"/xmltv", "/logo/1"} {
+				resp, err := client.Get(e.proxy.URL + path)
+				if err != nil {
+					if tc.headersReachClient {
+						t.Errorf("%s: the headers were already flushed, so Get should succeed: %v", path, err)
+					}
+					continue // cut before any header was flushed: the client saw a failure
+				}
+				_, err = io.ReadAll(resp.Body)
+				resp.Body.Close()
+				if err == nil {
+					t.Errorf("%s: a truncated upstream body must cut the connection, not end the response cleanly", path)
+				}
+			}
+			if got := hits.Load(); got != 2 {
+				t.Errorf("the proxy reached the upstream %d times, want 2 (once per path)", got)
+			}
+		})
 	}
 }
