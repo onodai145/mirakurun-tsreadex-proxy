@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -173,5 +174,88 @@ func TestListenSkipsAnIPv6AddressThatCannotBeBound(t *testing.T) {
 	}
 	if len(lns) != 1 {
 		t.Errorf("got %d listeners, want 1", len(lns))
+	}
+}
+
+// permitOnly returns a policy that permits just the one IPv4 address, so that
+// a loopback client can be either inside (127.0.0.2) or outside (127.0.0.1).
+func permitOnly(t *testing.T, addr string) *Policy {
+	t.Helper()
+	p, err := NewPolicy([]string{addr + "/32"}, nil, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestFilterListenerClosesDeniedConnectionsAtAccept(t *testing.T) {
+	inner, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := permitOnly(t, "127.0.0.2").FilterListener(inner, discard)
+	defer ln.Close()
+
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err == nil {
+			accepted <- c
+		}
+	}()
+
+	// Outside the permitted range: the connection is closed without a reply,
+	// and the request is never handed to the server.
+	denied, err := net.Dial("tcp", inner.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer denied.Close()
+	denied.Write([]byte("GET /playlist.m3u HTTP/1.1\r\nHost: localhost\r\n\r\n"))
+	denied.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if n, err := denied.Read(make([]byte, 1)); n != 0 || err == nil || errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("denied client read = %d, %v; want the connection closed with no data", n, err)
+	}
+	select {
+	case c := <-accepted:
+		c.Close()
+		t.Fatal("Accept returned a connection from outside the permitted range")
+	default:
+	}
+
+	// Inside the range: the connection comes through the same listener.
+	d := net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.2")}}
+	ok, err := d.Dial("tcp", inner.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ok.Close()
+	select {
+	case c := <-accepted:
+		c.Close()
+	case <-time.After(2 * time.Second):
+		t.Fatal("Accept did not return the permitted connection")
+	}
+}
+
+func TestFilterListenerAcceptReturnsWhenClosed(t *testing.T) {
+	inner, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := permitOnly(t, "127.0.0.2").FilterListener(inner, discard)
+	errc := make(chan error, 1)
+	go func() {
+		_, err := ln.Accept()
+		errc <- err
+	}()
+	ln.Close()
+	select {
+	case err := <-errc:
+		if !errors.Is(err, net.ErrClosed) {
+			t.Errorf("Accept error = %v, want net.ErrClosed", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Accept did not return after Close")
 	}
 }

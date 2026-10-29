@@ -77,7 +77,7 @@ func run() error {
 	srv := &http.Server{Handler: active.wrap(handler), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, len(listeners))
 	for _, ln := range listeners {
-		go func() { errc <- srv.Serve(ln) }()
+		go func() { errc <- srv.Serve(policy.FilterListener(ln, log)) }()
 	}
 
 	select {
