@@ -19,6 +19,10 @@ import (
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/stream"
 )
 
+// handlerExitTimeout bounds how long shutdown waits for the handlers after the
+// remaining connections were closed.
+const handlerExitTimeout = 2 * time.Second
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "mirakurun-tsreadex-proxy:", err)
@@ -69,7 +73,8 @@ func run() error {
 	}
 
 	// No write timeout: streams are long-lived.
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	var active inflight
+	srv := &http.Server{Handler: active.wrap(handler), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, len(listeners))
 	for _, ln := range listeners {
 		go func() { errc <- srv.Serve(ln) }()
@@ -93,6 +98,12 @@ func run() error {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("graceful shutdown did not finish; closing the remaining connections", "error", err)
 		srv.Close() // streams that outlive the grace period are cut
+		// Close does not wait for the handlers. Each one stops its tsreadex
+		// when its connection closes, so give them a moment to do so rather
+		// than relying on the process exit to close tsreadex's stdin.
+		if !active.wait(handlerExitTimeout) {
+			log.Warn("some handlers did not finish before exit", "active", active.active())
+		}
 	}
 	return nil
 }
