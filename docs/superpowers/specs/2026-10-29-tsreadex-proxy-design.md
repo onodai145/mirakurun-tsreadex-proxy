@@ -80,7 +80,7 @@ M3U は全体を読み込んでから書き換えるため、上流の読み込�
 ## 5. ストリーム処理
 
 1. `{id}` を検証し、`serviceId = id % 100000` を計算する。`MAX_STREAMS` 超過なら 503。
-2. 上流 `GET {MIRAKURUN_URL}/api/services/{id}/stream[?query]` を、リクエストの context 付きで開く。クライアントのリクエストヘッダは転送せず、リダイレクトは追従しない。接続不可なら 502、上流が非2xxならそのステータスのみを返す(上流のレスポンス本文は返さない)。
+2. 上流 `GET {MIRAKURUN_URL}/api/services/{id}/stream[?query]` を、リクエストの context 付きで開く。クライアントのリクエストヘッダは転送せず、リダイレクトは追従しない。接続不可なら 502。上流が 4xx/5xx ならそのステータスのみを返す(上流のレスポンス本文は返さない)。それ以外の非2xx(リダイレクトなど)は 502 とする。
 3. `tsreadex -n <serviceId> <TSREADEX_ARGS> -` を `exec` する(シェルを介さない)。環境変数は最小限(`PATH` 程度)だけ渡す。stdin は上流の body、stdout はパイプ。
 4. stdout の最初のバイトを受け取るまでレスポンスヘッダは送らない。受け取ったら `200` と `Content-Type: video/MP2T` を送り、以降は読み取るたびに flush する。最初のバイトが `FIRST_BYTE_TIMEOUT`(既定15秒)以内に来なければ、プロセスを kill して 504 を返す。サービスIDが存在しない場合などの対策である。
 5. 終了処理は次のとおり。
@@ -119,7 +119,8 @@ M3U は全体を読み込んでから書き換えるため、上流の読み込�
 | `{id}` が数字列でない、または `serviceId` が範囲外 | 400 |
 | `MAX_STREAMS` 超過 | 503 |
 | 上流に接続できない | 502 |
-| 上流が非2xx | そのステータスのみ(上流の本文や `MIRAKURUN_URL` はクライアントに返さない) |
+| 上流が 4xx/5xx | そのステータスのみ(上流の本文や `MIRAKURUN_URL` はクライアントに返さない) |
+| 上流がその他の非2xx(リダイレクトなど) | 502 |
 | 出力開始前に tsreadex が終了 | 502 |
 | `FIRST_BYTE_TIMEOUT` 超過 | 504、プロセスを kill |
 | 出力開始後の tsreadex 異常終了 | 接続を切る |
@@ -202,7 +203,7 @@ Mirakurun と同様に、`0.0.0.0` や `::` では待ち受けない。パブリ
 
 1. **送信元IP:** 接続元アドレス(`RemoteAddr`)を `ALLOW_IPV4_CIDR_RANGES` / `ALLOW_IPV6_CIDR_RANGES` と照合する。IPv4射影IPv6(`::ffff:a.b.c.d`)はIPv4に戻して判定する。許可範囲外なら、応答せず接続を閉じる。`X-Forwarded-For` 等は見ない。
 2. **Origin:** ヘッダがあれば、ホスト名が `localhost`・`ALLOWED_HOSTNAME`・許可範囲のIPアドレスのいずれかであるか、`ALLOW_ORIGINS` に完全一致する場合のみ許可する。それ以外、および解釈できない値は 403。
-3. **Referer:** ヘッダがあれば、2 と同様に判定する(`ALLOW_ORIGINS` は前方一致)。不許可は 403。
+3. **Referer:** ヘッダがあれば、2 と同様に判定する。`ALLOW_ORIGINS` は前方一致だが、オリジンの境界で一致すること(Referer が許可オリジンと等しいか、許可オリジンの直後が `/`・`?`・`#` であること)。`https://app.example` が `https://app.example.evil.com/` に一致してしまうことを防ぐためで、Mirakurun の単純な `startsWith` よりやや厳格である。不許可は 403。
 4. **Host(Mirakurun にない追加):** Host ヘッダのホスト名が、2 と同じ条件(`localhost`・`ALLOWED_HOSTNAME`・許可範囲のIP)を満たさなければ 403。DNS Rebinding の標準的な対策であり、Host から M3U の URL を導出する(§4)ことの安全のためである。Mirakurun よりやや厳格だが、設定を誤ると 403 になる(§11)。
 
 CORS ヘッダは出さない。Jellyfin は M3U・XMLTV・ストリームをサーバー側から取得するため、ブラウザのクロスオリジン許可は不要である(Mirakurun は `cors()` で `*` を返すが、本プロキシはより厳格にする)。`X-Content-Type-Options: nosniff` を付ける。
@@ -244,7 +245,7 @@ Mirakurun の対策が本プロキシのどこで実現され、どのテスト(
 | 送信元IP制限(既定はプライベートIPのみ。範囲外は応答せず接続を閉じる) | §12.3 の 1 | 既定値は同じ。IPv4射影IPv6はIPv4に戻して判定する | 単体: CIDR判定。統合: 全エンドポイントで応答なしに閉じられること |
 | 許可範囲のアドレスのみで listen | §12.2 | ループバックは許可範囲に含まれる場合のみ | 単体: 待ち受けアドレスの選択 |
 | `Origin` 検査 | §12.3 の 2 | 解釈できない値は 403 | 単体: 許可・拒否の組み合わせ。統合: 全エンドポイントで 403 |
-| `Referer` 検査 | §12.3 の 3 | 同じ | 同上 |
+| `Referer` 検査 | §12.3 の 3 | `ALLOW_ORIGINS` はオリジン境界での前方一致(やや厳格) | 同上 |
 | リバースプロキシの下に置かない(VPN/SSH トンネルを使う) | §12.6(README) | `X-Forwarded-*` を信頼しない | 単体: `X-Forwarded-For` を無視すること |
 | 管理 API・チューナーコマンドへ到達させない | §3 の allowlist、上流のパス固定 | Mirakurun 自身は公開する側。本プロキシは公開しない | 統合: allowlist 外のパス・メソッドが 404/405 |
 | (Mirakurun にない)`Host` 検証 | §12.3 の 4 | より厳格 | 単体: 許可・拒否の組み合わせ |
