@@ -72,7 +72,7 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 	defer timer.Stop()
 
 	target := upstream.URL(s.cfg.Upstream, r.URL.RawQuery, "api", "services", strconv.FormatUint(id, 10), "stream")
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	req, err := upstream.NewRequest(ctx, target)
 	if err != nil {
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 		return

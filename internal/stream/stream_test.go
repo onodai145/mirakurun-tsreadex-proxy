@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/testutil"
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream"
 )
 
 var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -111,10 +112,11 @@ func waitGone(t *testing.T, pidFile string) {
 }
 
 func TestServe_PassesBytesThroughAndHidesClientHeaders(t *testing.T) {
-	var gotPath, gotQuery, gotAuth, gotCookie string
+	var gotPath, gotQuery, gotAuth, gotCookie, gotUA string
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
 		gotAuth, gotCookie = r.Header.Get("Authorization"), r.Header.Get("Cookie")
+		gotUA = r.Header.Get("User-Agent")
 		io.WriteString(w, "hello-ts-bytes")
 	}))
 	defer up.Close()
@@ -123,6 +125,7 @@ func TestServe_PassesBytesThroughAndHidesClientHeaders(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, proxy.URL+"/stream/3273601024?decode=1", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("Cookie", "session=abc")
+	req.Header.Set("User-Agent", "Jellyfin/10")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -141,6 +144,9 @@ func TestServe_PassesBytesThroughAndHidesClientHeaders(t *testing.T) {
 	}
 	if gotAuth != "" || gotCookie != "" {
 		t.Errorf("client headers leaked upstream: Authorization=%q Cookie=%q", gotAuth, gotCookie)
+	}
+	if gotUA != upstream.UserAgent {
+		t.Errorf("upstream saw User-Agent %q, want %q", gotUA, upstream.UserAgent)
 	}
 }
 

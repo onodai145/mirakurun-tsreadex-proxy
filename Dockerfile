@@ -11,9 +11,11 @@ WORKDIR /src
 RUN make LDFLAGS="-static -s"
 
 FROM golang:${GO_VERSION}-alpine AS proxy
+# 上流へ送る User-Agent に埋め込むバージョン(リリースでは、タグから v を除いたもの)。
+ARG VERSION=dev
 WORKDIR /src
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/mirakurun-tsreadex-proxy ./cmd/mirakurun-tsreadex-proxy
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream.version=${VERSION}" -o /out/mirakurun-tsreadex-proxy ./cmd/mirakurun-tsreadex-proxy
 
 FROM scratch
 COPY --from=tsreadex /src/tsreadex /usr/local/bin/tsreadex

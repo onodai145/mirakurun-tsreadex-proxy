@@ -2,6 +2,7 @@
 package upstream
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"path"
@@ -19,6 +20,25 @@ func NewClient() *http.Client {
 		Transport:     t,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
+}
+
+// version is the release version, set at build time with
+// -ldflags "-X github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream.version=1.2.3".
+var version = "dev"
+
+// UserAgent identifies this proxy and its version to Mirakurun/mirakc instead
+// of Go's default "Go-http-client/1.1".
+var UserAgent = "mirakurun-tsreadex-proxy/" + version
+
+// NewRequest returns a GET request for an upstream URL built by URL. It carries
+// UserAgent and no header from the client.
+func NewRequest(ctx context.Context, target string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", UserAgent)
+	return req, nil
 }
 
 // URL appends elem to the path of base and sets the raw query. Only the
