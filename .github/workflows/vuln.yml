@@ -22,5 +22,5 @@ jobs:
         with:
           go-version-file: go.mod
       # govulncheck の新しい版は新しい Go を要求する(v1.9.0 は Go 1.26 以上)。
-      # go.mod の Go で動く最後の系列に固定している。Go を更新したら、この版も上げる。
-      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+      # go.mod の Go で動く版に固定している。Go を更新したら、この版も確認する。
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

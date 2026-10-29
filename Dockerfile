@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.26
 ARG TSREADEX_REF=master-260428
 
 # tsreadex は依存のない C++11。静的リンクして scratch に載せる。
