@@ -224,6 +224,15 @@ func (s *section) add(pusi bool, payload []byte) []byte {
 			s.buf, s.want = nil, 0
 			return nil
 		}
+		if len(s.buf) > 0 {
+			// The bytes before the pointer are the tail of the section being
+			// assembled. If they finish it, the section that starts here is
+			// dropped: its next repetition will be seen.
+			s.buf = append(s.buf, payload[1:pointer]...)
+			if sec := s.take(); sec != nil {
+				return sec
+			}
+		}
 		s.buf, s.want = append(s.buf[:0], payload[pointer:]...), 0
 	} else if len(s.buf) == 0 {
 		return nil // the start of this section was missed
@@ -234,6 +243,11 @@ func (s *section) add(pusi bool, payload []byte) []byte {
 		s.buf, s.want = nil, 0
 		return nil
 	}
+	return s.take()
+}
+
+// take returns the section if the buffer holds all of it.
+func (s *section) take() []byte {
 	if s.want == 0 && len(s.buf) >= 3 {
 		s.want = 3 + (int(s.buf[1]&0x0F)<<8 | int(s.buf[2]))
 	}

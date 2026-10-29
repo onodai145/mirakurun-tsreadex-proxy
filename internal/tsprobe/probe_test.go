@@ -193,3 +193,36 @@ func TestProbe_WriteNeverPanics(t *testing.T) {
 		}
 	})
 }
+
+// A section's tail may share a packet with the start of the next section
+// (pointer_field > 0). The tail still belongs to the section being assembled.
+func TestProbe_PMTTailSharingAPacketWithTheNextSection(t *testing.T) {
+	ts := testutil.BuildTS(testutil.TSOptions{
+		ServiceID: 1024, ExtraPMTBytes: 300,
+		Audio: []testutil.AudioES{audio(0x110, 0, 3, sce)},
+	})
+	const pkt = 188
+	// ts is PAT, PMT (two packets), PES.
+	pmtStart := ts[1*pkt : 2*pkt] // 4-byte header, pointer_field, then the first 183 bytes of the section
+	pmtTail := ts[2*pkt : 3*pkt]  // 4-byte header, the rest of the section, then 0xFF stuffing
+	total := 3 + (int(pmtStart[6]&0x0F)<<8 | int(pmtStart[7]))
+	tailLen := total - 183
+	if tailLen <= 0 || tailLen >= 183 {
+		t.Fatalf("the test PMT must span exactly two packets, tail = %d", tailLen)
+	}
+
+	shared := append([]byte(nil), pmtTail[:4]...)
+	shared[1] |= 0x40 // payload_unit_start_indicator
+	shared = append(shared, byte(tailLen))
+	shared = append(shared, pmtTail[4:4+tailLen]...)
+	for len(shared) < pkt {
+		shared = append(shared, 0xFF) // where the next section would start
+	}
+	rebuilt := append(append(append([]byte(nil), ts[:2*pkt]...), shared...), ts[3*pkt:]...)
+
+	o := newOutcome(1024)
+	o.write(rebuilt)
+	if len(o.results) != 1 || !o.results[0].DualMono || len(o.giveUps) != 0 {
+		t.Errorf("results = %+v, giveUps = %v", o.results, o.giveUps)
+	}
+}
