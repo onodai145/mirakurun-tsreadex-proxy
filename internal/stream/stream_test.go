@@ -363,6 +363,69 @@ func TestServe_TsreadexFailureAfterOutputAbortsConnection(t *testing.T) {
 	}
 }
 
+// stallingUpstream sends 2*188 bytes and then holds the connection open,
+// silent, until the request is cancelled.
+func stallingUpstream(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(bytes.Repeat([]byte{0x47}, 2*188))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestServe_TsreadexFailureWithStalledUpstreamAbortsAndReleasesSlot(t *testing.T) {
+	// tsreadex dies right after producing output while the upstream goes
+	// silent. The stdin copier is then stuck reading the upstream body; Serve
+	// must still finish promptly: cut the connection and free the stream slot.
+	stub := testutil.StubScript(t, "head -c 188\nexit 5")
+	proxy := startProxy(t, stallingUpstream(t).URL, stub, nil, 1, 5*time.Second)
+
+	type result struct {
+		status int
+		err    error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		resp, err := http.Get(proxy.URL + "/stream/1")
+		if err != nil {
+			ch <- result{err: err}
+			return
+		}
+		defer resp.Body.Close()
+		_, err = io.ReadAll(resp.Body)
+		ch <- result{status: resp.StatusCode, err: err}
+	}()
+	select {
+	case r := <-ch:
+		if r.err == nil {
+			t.Fatalf("the stream ended cleanly (status %d); a tsreadex failure after output must cut the connection", r.status)
+		}
+	case <-time.After(4 * time.Second):
+		t.Fatal("Serve is stuck: tsreadex failed but the stalled upstream body blocks the response from being cut")
+	}
+
+	// The slot must have been released: with MaxStreams=1 a new request is
+	// served (and cut again) instead of being rejected with 503.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		resp, err := http.Get(proxy.URL + "/stream/2")
+		if err == nil {
+			code := resp.StatusCode
+			resp.Body.Close()
+			if code != http.StatusServiceUnavailable {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the MAX_STREAMS slot was never released")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 func TestNewFailsWhenTsreadexIsMissing(t *testing.T) {
 	base, _ := url.Parse("http://127.0.0.1:1")
 	_, err := New(Config{Upstream: base, Tsreadex: "definitely-not-installed-tsreadex", MaxStreams: 1, FirstByteTimeout: time.Second}, discard)

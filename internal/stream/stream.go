@@ -159,8 +159,15 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 		}
 	}
 
-	// The output ended. A clean exit is a normal end of stream; a failure that
-	// we did not cause must not look like one, so cut the connection.
+	// The output ended. If tsreadex exited first, the stdin copier may still be
+	// blocked reading a silent upstream body, and Wait (even with WaitDelay)
+	// would wait for it indefinitely. Closing the body unblocks it; on the
+	// normal path the copier is already done, so this is harmless. ctx stays
+	// untouched, so the ctx.Err() check below still tells our own kills apart.
+	_ = resp.Body.Close()
+
+	// A clean exit is a normal end of stream; a failure that we did not cause
+	// must not look like one, so cut the connection.
 	if err := wait(); err != nil && ctx.Err() == nil {
 		s.log.Warn("tsreadex failed after producing output", "service_id", serviceID, "error", err)
 		panic(http.ErrAbortHandler)
