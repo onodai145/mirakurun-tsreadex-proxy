@@ -50,6 +50,19 @@ Jellyfin ──▶ mirakurun-tsreadex-proxy ──▶ Mirakurun / mirakc
 | `ALLOW_IPV6_CIDR_RANGES` | `fc00::/7` | 許可する送信元 IPv6(Mirakurun の既定と同じ) |
 | `ALLOW_ORIGINS` | (空) | `Origin` / `Referer` を追加で許可するオリジン(カンマ区切り)。`Origin` は完全一致、`Referer` はオリジンの境界での前方一致です(`https://app.example` は `https://app.example/x` には一致しますが、`https://app.example.evil.com/` には一致しません) |
 | `ALLOWED_HOSTNAME` | (空) | クライアントがこのプロキシに到達する際のホスト名。`localhost` と許可範囲の IP は常に許可されます |
+| `LOG_LEVEL` | `info` | ログレベル(`debug` / `info` / `warn` / `error`)。`warn` 以上にすると、tsreadex の stderr などの Info ログも出なくなります。`debug` で何が出るかは「デバッグログ」を参照 |
+
+### デバッグログ
+
+`LOG_LEVEL=debug` にすると、視聴を始めた直後に、上流のストリームの音声(ADTS)ごとに次のログが 1 回出ます。デュアルモノ(2 か国語放送など)かどうかの確認に使えます。
+
+```
+level=DEBUG msg="audio stream probed" service_id=1024 pid=273 channel_configuration=0 dual_mono=true
+```
+
+- `dual_mono` は推定です。`channel_configuration` が 0 で、サンプリング周波数が 48 / 44.1 / 32 kHz で、先頭の要素が SCE のときに `true` になります(tsreadex のように SCE が 2 個あることまでは確かめません)。確定は、tsreadex の `-a` に +8 を付けたときに音声が分離されるかで確かめてください。
+- 判定できなかったときは `msg="audio probe gave up" reason=…` が出ます(`sync failed` / `sync lost` / `program not in PAT` / `no ADTS audio stream` / `limit reached`)。
+- 解析は最初の約 8 MiB(数秒分)だけで、tsreadex に渡すストリームは変わりません。`debug` 以外では何もしません。
 
 ## セキュリティ
 
@@ -101,6 +114,7 @@ docker build -t mirakurun-tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF の
 - [ ] `ALLOWED_HOSTNAME` を外すと、Jellyfin からのアクセスが 403 になり、ログに `reason=host` が出る。
 - [ ] 許可範囲外のホストから接続すると、応答なしで切断される(許可範囲内のホストからは応答する)。
 - [ ] (ポートを公開する構成を試す場合のみ。非推奨)ポートを公開した状態で、許可範囲外のホストと許可範囲内のホストからそれぞれ接続し、プロキシのログの `remote=` に実際のクライアントのアドレスが出るか比べる。`remote=` がブリッジのゲートウェイのアドレスになっていれば、その構成では送信元 IP の制限は効いていない(スペック §11)。
+- [ ] `LOG_LEVEL=debug` で、2 か国語放送の番組を視聴すると `dual_mono=true` のログが出る。ステレオの番組では `dual_mono=false` になる。
 - [ ] 許可範囲外のアドレスで待ち受けていないこと(`ss -ltn` で待ち受けアドレスを確認する)。
 
 ## ライセンス

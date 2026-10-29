@@ -24,6 +24,7 @@ docker build -t mirakurun-tsreadex-proxy .
 - `internal/playlist`: 上流 M3U の URL 書き換え
 - `internal/stream`: tsreadex プロセスの起動と管理、サービス ID の検証(`ParseID`。`/logo/{id}` でも使う)
 - `internal/upstream`: Mirakurun / mirakc へのリクエストに共通する処理(HTTP クライアントの生成、URL の組み立て、上流ステータスの変換)
+- `internal/tsprobe`: debug のときだけ、上流の TS を覗いて ADTS 音声がデュアルモノかを推定する(結果はログに出す)
 - `internal/testutil`: テスト用の共通処理
 
 ## 守ること

@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -28,11 +29,17 @@ var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 // startProxy serves Streamer.Serve at /stream/{id} the way the real router does.
 func startProxy(t *testing.T, upstreamURL, exe string, args []string, maxStreams int, firstByte time.Duration) *httptest.Server {
 	t.Helper()
+	return startProxyLog(t, discard, upstreamURL, exe, args, maxStreams, firstByte)
+}
+
+// startProxyLog is startProxy with a chosen logger.
+func startProxyLog(t *testing.T, log *slog.Logger, upstreamURL, exe string, args []string, maxStreams int, firstByte time.Duration) *httptest.Server {
+	t.Helper()
 	base, err := url.Parse(upstreamURL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := New(Config{Upstream: base, Tsreadex: exe, Args: args, MaxStreams: maxStreams, FirstByteTimeout: firstByte}, discard)
+	s, err := New(Config{Upstream: base, Tsreadex: exe, Args: args, MaxStreams: maxStreams, FirstByteTimeout: firstByte}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,5 +467,98 @@ func TestLineWriter(t *testing.T) {
 	}
 	if len(out) > 20000 {
 		t.Errorf("log output is %d bytes, the long line must be truncated", len(out))
+	}
+}
+
+// lockedBuffer is a bytes.Buffer that the logger and the test may touch from
+// different goroutines.
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+func logAt(level slog.Level) (*slog.Logger, *lockedBuffer) {
+	buf := &lockedBuffer{}
+	return slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: level})), buf
+}
+
+func dualMonoTS() []byte {
+	return testutil.BuildTS(testutil.TSOptions{
+		ServiceID: 1024,
+		Audio:     []testutil.AudioES{{PID: 0x110, Frame: testutil.ADTSFrame(0, 3, true, 0)}},
+	})
+}
+
+func TestServe_DebugLogsDualMonoAndPassesTheStreamThrough(t *testing.T) {
+	log, logs := logAt(slog.LevelDebug)
+	ts := dualMonoTS()
+	proxy := startProxyLog(t, log, bodyUpstream(t, string(ts)).URL, testutil.StubScript(t, "exec cat"), nil, 4, 5*time.Second)
+
+	resp, err := http.Get(proxy.URL + "/stream/3273601024") // service id 1024
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if !bytes.Equal(body, ts) {
+		t.Errorf("the stream changed on its way through: got %d bytes, want %d", len(body), len(ts))
+	}
+	got := logs.String()
+	if n := strings.Count(got, `msg="audio stream probed"`); n != 1 {
+		t.Fatalf("want one probe line, got %d:\n%s", n, got)
+	}
+	for _, want := range []string{"service_id=1024", "pid=272", "channel_configuration=0", "dual_mono=true"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the log lacks %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestServe_InfoLevelDoesNotProbe(t *testing.T) {
+	log, logs := logAt(slog.LevelInfo)
+	ts := dualMonoTS()
+	proxy := startProxyLog(t, log, bodyUpstream(t, string(ts)).URL, testutil.StubScript(t, "exec cat"), nil, 4, 5*time.Second)
+
+	resp, err := http.Get(proxy.URL + "/stream/3273601024")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if !bytes.Equal(body, ts) {
+		t.Error("the stream changed on its way through")
+	}
+	if got := logs.String(); strings.Contains(got, "audio") {
+		t.Errorf("nothing about audio may be logged at the info level:\n%s", got)
+	}
+}
+
+func TestServe_DebugLogsWhyTheProbeGaveUp(t *testing.T) {
+	log, logs := logAt(slog.LevelDebug)
+	proxy := startProxyLog(t, log, bodyUpstream(t, strings.Repeat("x", 2000)).URL, testutil.StubScript(t, "exec cat"), nil, 4, 5*time.Second)
+
+	resp, err := http.Get(proxy.URL + "/stream/3273601024")
+	if err != nil {
+		t.Fatal(err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if got := logs.String(); !strings.Contains(got, `msg="audio probe gave up"`) || !strings.Contains(got, `reason="sync failed"`) {
+		t.Errorf("the give-up was not logged:\n%s", got)
 	}
 }

@@ -5,6 +5,7 @@ package stream
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/tsprobe"
 	"github.com/onodai145/mirakurun-tsreadex-proxy/internal/upstream"
 )
 
@@ -94,7 +96,7 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 	args = append(args, "-")
 	cmd := exec.CommandContext(ctx, s.exe, args...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
-	cmd.Stdin = resp.Body
+	cmd.Stdin = s.tap(ctx, resp.Body, serviceID)
 	stderr := newLineWriter(s.log, serviceID)
 	cmd.Stderr = stderr
 	cmd.WaitDelay = 3 * time.Second
@@ -180,6 +182,22 @@ func (s *Streamer) Serve(w http.ResponseWriter, r *http.Request, id uint64, serv
 		s.log.Warn("tsreadex failed after producing output", "service_id", serviceID, "error", err)
 		panic(http.ErrAbortHandler)
 	}
+}
+
+// tap returns the reader tsreadex should read. At the debug level it also
+// feeds a copy of the stream to a tsprobe.Probe, which logs whether the audio
+// is dual mono; otherwise it is body itself.
+func (s *Streamer) tap(ctx context.Context, body io.Reader, serviceID int) io.Reader {
+	if !s.log.Enabled(ctx, slog.LevelDebug) {
+		return body
+	}
+	probe := tsprobe.New(serviceID, func(r tsprobe.Result) {
+		s.log.Debug("audio stream probed", "service_id", serviceID, "pid", r.PID,
+			"channel_configuration", r.ChannelConfig, "dual_mono", r.DualMono)
+	}, func(reason string) {
+		s.log.Debug("audio probe gave up", "service_id", serviceID, "reason", reason)
+	})
+	return io.TeeReader(body, probe)
 }
 
 // fail answers a failure that happened before any output was sent.
