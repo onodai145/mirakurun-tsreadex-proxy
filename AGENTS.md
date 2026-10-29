@@ -8,8 +8,8 @@ tsreadex を HTTP プロキシとして包み、Jellyfin の Live TV から Mira
 gofmt -l .                                      # 出力があれば未整形(CI で検査される)
 go vet ./...
 go test ./... -race
-go build -o tsreadex-proxy ./cmd/tsreadex-proxy
-docker build -t tsreadex-proxy .
+go build -o mirakurun-tsreadex-proxy ./cmd/mirakurun-tsreadex-proxy
+docker build -t mirakurun-tsreadex-proxy .
 ```
 
 - テストは tsreadex の代わりにシェルスクリプトのスタブを使うため、実際の tsreadex は不要です。Linux 専用です。
@@ -17,7 +17,7 @@ docker build -t tsreadex-proxy .
 
 ## 構成
 
-- `cmd/tsreadex-proxy`: エントリポイント
+- `cmd/mirakurun-tsreadex-proxy`: エントリポイント
 - `internal/config`: 環境変数とフラグの解釈
 - `internal/access`: 送信元 IP と `Origin` / `Referer` / `Host` の検証、待ち受けアドレスの決定
 - `internal/server`: HTTP ハンドラ(`/playlist.m3u`、`/xmltv`、`/logo/{id}`、`/stream/{id}`)
