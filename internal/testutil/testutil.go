@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -43,4 +45,15 @@ func NewServer(t *testing.T, h http.Handler, remote string) *httptest.Server {
 	srv.Start()
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// StubScript writes an executable /bin/sh script (a stand-in for tsreadex)
+// into a temporary directory and returns its path.
+func StubScript(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "tsreadex-stub")
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
