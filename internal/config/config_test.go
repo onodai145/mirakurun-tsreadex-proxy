@@ -29,7 +29,7 @@ func TestLoadDefaults(t *testing.T) {
 	if c.TsreadexPath != "tsreadex" {
 		t.Errorf("TsreadexPath = %q", c.TsreadexPath)
 	}
-	wantArgs := []string{"-x", "18/38/39", "-b", "1", "-c", "1", "-u", "2", "-d", "13"}
+	wantArgs := []string{"-x", "18/38/39", "-a", "13", "-b", "5", "-c", "1", "-u", "2", "-d", "13"}
 	if !reflect.DeepEqual(c.TsreadexArgs, wantArgs) {
 		t.Errorf("TsreadexArgs = %v", c.TsreadexArgs)
 	}
