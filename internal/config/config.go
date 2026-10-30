@@ -15,7 +15,7 @@ import (
 const (
 	defaultIPv4Ranges   = "10.0.0.0/8,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 	defaultIPv6Ranges   = "fc00::/7"
-	defaultTsreadexArgs = "-x 18/38/39 -b 1 -c 1 -u 2 -d 13"
+	defaultTsreadexArgs = "-x 18/38/39 -a 13 -b 5 -c 1 -u 2 -d 13"
 )
 
 // Config is the validated startup configuration.

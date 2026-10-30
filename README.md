@@ -43,7 +43,7 @@ Jellyfin ──▶ mirakurun-tsreadex-proxy ──▶ Mirakurun / mirakc
 | `LISTEN_PORT` | `8080` | 待ち受けポート。待ち受けアドレスは設定できず、許可範囲のアドレスから自動で決まります |
 | `PUBLIC_BASE_URL` | (空) | M3U に書き込むこのプロキシの URL。空ならリクエストの Host から導出します |
 | `TSREADEX_PATH` | `tsreadex` | tsreadex の実行ファイル名またはパス。起動時に実行ファイルが見つかり実行可能かを確認し、そうでなければ終了します(Docker イメージでは `/usr/local/bin/tsreadex`) |
-| `TSREADEX_ARGS` | `-x 18/38/39 -b 1 -c 1 -u 2 -d 13` | 空白区切り。`-n`、`-z`、`-s`、`-r` と位置引数は指定できません(`-n` はプロキシが付与します) |
+| `TSREADEX_ARGS` | `-x 18/38/39 -a 13 -b 5 -c 1 -u 2 -d 13` | 空白区切り。`-n`、`-z`、`-s`、`-r` と位置引数は指定できません(`-n` はプロキシが付与します) |
 | `MAX_STREAMS` | `8` | 同時ストリーム数の上限(超えると 503) |
 | `FIRST_BYTE_TIMEOUT` | `15s` | tsreadex の出力開始待ち(超えると 504) |
 | `ALLOW_IPV4_CIDR_RANGES` | `10.0.0.0/8,127.0.0.0/8,172.16.0.0/12,192.168.0.0/16` | 許可する送信元 IPv4(Mirakurun の既定と同じ) |
@@ -51,6 +51,13 @@ Jellyfin ──▶ mirakurun-tsreadex-proxy ──▶ Mirakurun / mirakc
 | `ALLOW_ORIGINS` | (空) | `Origin` / `Referer` を追加で許可するオリジン(カンマ区切り)。`Origin` は完全一致、`Referer` はオリジンの境界での前方一致です(`https://app.example` は `https://app.example/x` には一致しますが、`https://app.example.evil.com/` には一致しません) |
 | `ALLOWED_HOSTNAME` | (空) | クライアントがこのプロキシに到達する際のホスト名。`localhost` と許可範囲の IP は常に許可されます |
 | `LOG_LEVEL` | `info` | ログレベル(`debug` / `info` / `warn` / `error`)。`warn` 以上にすると、tsreadex の stderr などの Info ログも出なくなります。`debug` で何が出るかは「デバッグログ」を参照 |
+
+`TSREADEX_ARGS` の既定値は、デュアルモノ(1 本の音声の左右に別の言語が入っている 2 か国語放送など)を、2 本の音声トラックに分けます。`-a 13` は「音声 1 が無ければ無音を補う(1)+ モノラルをステレオにする(4)+ デュアルモノを左右に分離する(8)」、`-b 5` は「音声 2 が無ければ無音を補う(1)+ モノラルをステレオにする(4)」です。分離した右側は第 2 音声になります。次の場合は分離されず、音声はそのまま通ります。
+
+- サンプリング周波数が 48 / 44.1 / 32 kHz 以外、または HE-AAC (SBR) の音声。
+- 元の放送に本物の第 2 音声があるとき(右側は捨てられます)。
+
+音声に手を加えない従来の挙動に戻すには、`TSREADEX_ARGS` に `-x 18/38/39 -b 1 -c 1 -u 2 -d 13` を指定してください。
 
 ### デバッグログ
 
@@ -115,6 +122,7 @@ docker build -t mirakurun-tsreadex-proxy .   # tsreadex は ARG TSREADEX_REF の
 - [ ] 許可範囲外のホストから接続すると、応答なしで切断される(許可範囲内のホストからは応答する)。
 - [ ] (ポートを公開する構成を試す場合のみ。非推奨)ポートを公開した状態で、許可範囲外のホストと許可範囲内のホストからそれぞれ接続し、プロキシのログの `remote=` に実際のクライアントのアドレスが出るか比べる。`remote=` がブリッジのゲートウェイのアドレスになっていれば、その構成では送信元 IP の制限は効いていない(スペック §11)。
 - [ ] `LOG_LEVEL=debug` で、2 か国語放送の番組を視聴すると `dual_mono=true` のログが出る。ステレオの番組では `dual_mono=false` になる。
+- [ ] デュアルモノの番組で、Jellyfin の音声トラックが 2 本になり、それぞれ両側のスピーカーから聞こえる(`LOG_LEVEL=debug` の `dual_mono=true` と合わせて確かめる)。
 - [ ] 許可範囲外のアドレスで待ち受けていないこと(`ss -ltn` で待ち受けアドレスを確認する)。
 
 ## ライセンス
